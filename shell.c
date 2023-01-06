@@ -43,7 +43,7 @@ int main(void)
         }
         case 0 : {
             // new fork
-            if (args[9] == NULL) {
+            if (args[0] == NULL) {
                 printf("No commands in recent history. \n");
             }
 
