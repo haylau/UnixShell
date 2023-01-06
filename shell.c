@@ -1,12 +1,13 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <errno.h>
 
 #define MAX_LINE 80 /* The maximum length command */
 
 int main(void)
 {
   char **args[MAX_LINE/2 + 1]; /* command line arguments */
-  char *history[MAX_LINE/2 +1]; // command line history
+  char **history[MAX_LINE/2 +1]; // command line history
   int should_run = 1; /* flag to determine when to exit program */
 
   while (should_run) {
@@ -37,17 +38,40 @@ int main(void)
     switch(pid) {
         case -1 : {
             // fork failed
-            perror("Fork Error");
+            fprintf(stderr, "Forking error, errno = %d\n", errno);
             exit(1);
             break;
         }
         case 0 : {
             // new fork
             if (args[0] == NULL) {
-                printf("No commands in recent history. \n");
+                printf("No commands in history. \n");
             }
-
-            // redirect stuff
+            
+            int j = 0;
+            while(args[j] != NULL)
+            {
+                // redirect operators
+                if (strcmp(args[j], ">") == 0)
+                {
+                    int outFile = open(args[j+1], O_WRONLY | O_CREAT);
+                    dup2(outFile, STDOUT_FILENO);
+                    close(outFile);
+                    args[j] = NULL;
+                    args[j+1] = NULL;
+                }
+                else if (stcmp(args[j], "<") == 0)
+                {
+                    int inFile = open(args[j+1], O_WRONLY | O_CREAT);
+                    dup2(inFile, STDIN_FILENO);
+                    close(inFile);
+                    args[j] = NULL;
+                    args[j+1] = NULL;
+                }
+                ++j;
+            }
+        
+            execvp(args[0], args); // invoking execvp
             break;
         }
         default : {
