@@ -1,6 +1,9 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <string.h>
 
 #define MAX_LINE 80 /* The maximum length command */
 
@@ -73,7 +76,7 @@ int main(void)
                 {
                     redirectOut(args[i+1]); // sending token after '>' to redirect out function
                 }
-                else if (stcmp(args[i], "<") == 0) // redirecting in
+                else if (strcmp(args[i], "<") == 0) // redirecting in
                 {
                     redirectIn(args[i+1]); // sending token after '<' to redirect in function
                 }
