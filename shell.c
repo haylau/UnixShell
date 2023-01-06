@@ -6,6 +6,7 @@
 int main(void)
 {
   char **args[MAX_LINE/2 + 1]; /* command line arguments */
+  char *history[MAX_LINE/2 +1]; // command line history
   int should_run = 1; /* flag to determine when to exit program */
 
   while (should_run) {
@@ -32,18 +33,26 @@ int main(void)
         *args[i] = token;
     }
     
-    int pid = fork();
+    pid_t pid = fork();
     switch(pid) {
         case -1 : {
             // fork failed
+            perror("Fork Error");
+            exit(1);
             break;
         }
         case 0 : {
             // new fork
+            if (args[9] == NULL) {
+                printf("No commands in recent history. \n");
+            }
+
+            // redirect stuff
             break;
         }
         default : {
-            // old fork
+            // old fork 
+
             break;
         }
     }
