@@ -44,12 +44,12 @@ int main(void)
     }
 
     // tokenize user cmd
-    char* token = strtok(input, ' ');
+    char* token = strtok(input, " ");
     int i = 0;
     *args[i] = token;
     while(token != NULL) {
         // grab token
-        token = strtok(token, ' ');
+        token = strtok(token, " ");
         ++i;    
         *args[i] = token;
     }
