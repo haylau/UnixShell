@@ -7,8 +7,51 @@
 
 #define MAX_LINE 80 /* The maximum length command */
 
+void createChildProc(char** args, char cmdTerm) {
+    pid_t pid = fork();
+    switch (pid) {
+    case -1: {
+        // fork failed
+        fprintf(stderr, "Forking error, errno = %d\n", errno);
+        exit(1);
+        break;
+    }
+    case 0: {
+        // child fork
+        if (args[0] == NULL) {
+            printf("No commands in history. \n");
+        }
+
+        int i = 0;
+        while (args[i] != NULL)
+        {
+            // redirect operators
+            if (strcmp(args[i], ">") == 0) // redirecting out
+            {
+                redirectOut(args[i + 1]); // sending token after '>' to redirect out function
+            }
+            else if (strcmp(args[i], "<") == 0) // redirecting in
+            {
+                redirectIn(args[i + 1]); // sending token after '<' to redirect in function
+            }
+            ++i;
+        }
+
+        execvp(args[0], args); // invoking execvp
+        break;
+    }
+    default: {
+        // parent fork
+        if (strcmp(cmdTerm, ';') == 0) {
+            WAIT(NULL);
+        }
+        break; 
+    }
+    }
+}
+
 // function to redirect out to file
-void redirectOut(char *fileName) 
+void redirectOut(char* fileName)
 {
     int outFile = open(fileName, O_WRONLY | O_CREAT); // opening file to output
     dup2(outFile, STDOUT_FILENO); // duplicating stdout with outFile
@@ -16,7 +59,7 @@ void redirectOut(char *fileName)
 }
 
 // function to redirect in to file
-void redirectIn(char *fileName)
+void redirectIn(char* fileName)
 {
     int inFile = open(fileName, O_RDONLY | O_CREAT); // opening file to read input
     dup2(inFile, STDIN_FILENO); // duplicating stdin with inFile
@@ -26,81 +69,65 @@ void redirectIn(char *fileName)
 // main function
 int main(void)
 {
-  char *args[MAX_LINE/2 + 1]; /* command line arguments */
-  char *history[MAX_LINE/2 +1]; // command line history
-  int should_run = 1; /* flag to determine when to exit program */
+    char* args[MAX_LINE / 2 + 1]; /* command line arguments */
+    char* history[MAX_LINE / 2 + 1]; // command line history
+    int should_run = 1; /* flag to determine when to exit program */
 
-  while (should_run) {
-    printf("osh>");
-    fflush(stdout);
+    while (should_run) {
+        printf("osh>");
+        fflush(stdout);
 
-    // fetch user cmd
-    char* input[MAX_LINE];
-    size_t len = MAX_LINE;
-    ssize_t lineSize = 0;
-    lineSize = getline(input, &len, stdin);
-    if (len > 0) {
-        (*input)[len - 1] = '\0';
-    }
+        // fetch user cmd
+        char* input[MAX_LINE];
+        size_t len = MAX_LINE;
+        ssize_t lineSize = 0;
+        lineSize = getline(input, &len, stdin);
+        if (len > 0) {
+            (*input)[len - 1] = '\0';
+        }
 
-    // tokenize user cmd
-    char* token = strtok(input, " ");
-    int i = 0;
-    args[i] = token;
-    while(token != NULL) {
-        // grab token
-        token = strtok(token, " ");
-        ++i;    
+        // tokenize user cmd
+        char* token = strtok(input, " ");
+        int i = 0;
         args[i] = token;
-    }
-    
-    pid_t pid = fork();
-    switch(pid) {
-        case -1 : {
-            // fork failed
-            fprintf(stderr, "Forking error, errno = %d\n", errno);
-            exit(1);
-            break;
+        while (token != NULL) {
+            // grab token
+            token = strtok(token, " ");
+            ++i;
+            args[i] = token;
         }
-        case 0 : {
-            // new fork
-            if (args[0] == NULL) {
-                printf("No commands in history. \n");
+
+        // fork for every command found
+        char* cmd;
+        int i = 0;
+        while (args[i] != NULL) {
+            // found end of command
+            if (strcmp(args[i], ";") || strcmp(args[i], "&")) {
+                createChildProc(cmd, args[i]);
+                // empty cmd
+                cmd = NULL;
             }
-            
-            int i = 0;
-            while(args[i] != NULL)
-            {
-                // redirect operators
-                if (strcmp(args[i], ">") == 0) // redirecting out
-                {
-                    redirectOut(args[i+1]); // sending token after '>' to redirect out function
-                }
-                else if (strcmp(args[i], "<") == 0) // redirecting in
-                {
-                    redirectIn(args[i+1]); // sending token after '<' to redirect in function
-                }
-                ++i;
+            // found pipe operator
+            else if (strcmp(args[i], "|")) {
+                // #TODO pipe?? 
             }
-        
-            execvp(args[0], args); // invoking execvp
-            break;
+            // else found an arguement
+            else {
+                cmd[i] = args[i];
+            }
+            ++i;
         }
-        default : {
-            // old fork 
+        // end of input
+        createChildProc(cmd, ';');
 
-            break;
-        }
+        /**
+        * After reading user input, the steps are:
+        * (1) fork a child process using fork()
+        * (2) the child process will invoke execvp()
+        * (3) parent will invoke wait() unless command included &
+        */
+
     }
-
-    /**
-    * After reading user input, the steps are:
-    * (1) fork a child process using fork()
-    * (2) the child process will invoke execvp()
-    * (3) parent will invoke wait() unless command included &
-    */
-
-  }
-  return 0;
+    return 0;
 }
 
