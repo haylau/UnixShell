@@ -99,7 +99,7 @@ int main(void)
 
         // fork for every command found
         char* cmd;
-        int i = 0;
+        i = 0;
         while (args[i] != NULL) {
             // found end of command
             if (strcmp(args[i], ";") || strcmp(args[i], "&")) {
