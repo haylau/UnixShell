@@ -34,7 +34,7 @@
 // function to redirect out to file
 void redirectOut(char* fileName)
 {
-    int outFile = open(fileName, O_WRONLY | O_CREAT); // opening file to output
+    int outFile = open(fileName, O_WRONLY | O_CREAT, 0777); // opening file to output
     dup2(outFile, STDOUT_FILENO); // duplicating stdout with outFile
     close(outFile); // close the outFile
 }
@@ -42,7 +42,7 @@ void redirectOut(char* fileName)
 // function to redirect in to file
 void redirectIn(char* fileName)
 {
-    int inFile = open(fileName, O_RDONLY | O_CREAT); // opening file to read input
+    int inFile = open(fileName, O_RDONLY | O_CREAT, 0777); // opening file to read input
     dup2(inFile, STDIN_FILENO); // duplicating stdin with inFile
     close(inFile); // close the inFile
 }
@@ -62,13 +62,17 @@ void createChildProc(char** args, char cmdTerm) {
         while (args[i] != NULL)
         {
             // redirect operators
-            if (strcmp(args[i], ">") == 0) // redirecting out
+            if (strcmp(args[1], ">") == 0) // redirecting out
             {
-                redirectOut(args[i + 1]); // sending token after '>' to redirect out function
+                redirectOut(args[2]); // sending token after '>' to redirect out function
+                args[1] = NULL;
+                args[2] = NULL;
             }
-            else if (strcmp(args[i], "<") == 0) // redirecting in
+            else if (strcmp(args[1], "<") == 0) // redirecting in
             {
-                redirectIn(args[i + 1]); // sending token after '<' to redirect in function
+                redirectIn(args[2]); // sending token after '<' to redirect in function
+                args[1] = NULL;
+                args[2] = NULL;
             }
             ++i;
         }
@@ -117,6 +121,7 @@ int main(void)
         } 
         if (strcmp(token, "ascii") == 0) {
             // todo ascii extra credit
+
         }
         if(strcmp(token, "!!") == 0) {
             if(history == NULL) {
