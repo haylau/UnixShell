@@ -119,9 +119,9 @@ int main(void)
             // else found an arguement
             else {
                 cmd[j] = args[i];
+                ++j;
             }
             ++i;
-            ++j;
         }
         // end of input
         cmd[j] = NULL;
