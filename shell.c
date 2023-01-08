@@ -7,6 +7,7 @@
 #include <string.h>
 
 #define MAX_LINE 80 /* The maximum length command */
+#define MAX_LEN (MAX_LINE / 2 + 1) /* buffer size */
 
 // function to redirect out to file
 void redirectOut(char* fileName)
@@ -35,10 +36,6 @@ void createChildProc(char** args, char cmdTerm) {
     }
     case 0: {
         // child fork
-        if (args[0] == NULL) {
-            printf("No commands in history. \n");
-        }
-
         int i = 0;
         while (args[i] != NULL)
         {
@@ -70,8 +67,8 @@ void createChildProc(char** args, char cmdTerm) {
 // main function
 int main(void)
 {
-    char* args[MAX_LINE / 2 + 1]; /* command line arguments */
-    char* history[MAX_LINE / 2 + 1]; // command line history
+    char* args[MAX_LEN]; /* tokenized command line arguments */
+    char* history; /* command line history; contains malloc'd ptrs */
     int should_run = 1; /* flag to determine when to exit program */
 
     while (should_run) {
@@ -79,20 +76,37 @@ int main(void)
         fflush(stdout);
 
         // fetch user cmd
-        char* input[MAX_LINE];
         size_t len = MAX_LINE;
-        ssize_t lineSize = 0;
-        lineSize = getline(input, &len, stdin);
+        ssize_t lineSize = 0; // length of string
+        char* input = (char*) malloc(len);
+        lineSize = getline(&input, &len, stdin);
         if (lineSize > 0) {
-            (*input)[lineSize - 1] = '\0';
+            (input)[lineSize - 1] = '\0';
         }
-
-        // add cmd to history
 
         // tokenize user cmd
         const char delim[2] = " ";
+        char* token = strtok(input, delim);
+        // most recent cmd requested
+        if(strcmp(token, "exit") == 0) {
+            if(input != NULL) free(input);
+            break; // exit shell
+        } 
+        if(strcmp(token, "!!") == 0) {
+            if(history == NULL) {
+                printf("No command history.");
+            }
+            else {
+                free(input);
+                // fetch from history
+                input = strdup(history);
+                printf("%s\n", input);
+                // update new first token
+                token = strtok(input, delim);
+            }
+        }
+        // grab rest of input tokens
         int i = 0;
-        char* token = strtok(*input, delim);
         args[i] = token;
         while (token != NULL) {
             // grab token
@@ -101,8 +115,13 @@ int main(void)
             args[i] = token;
         }
 
-        // fork for every command found
-        char* cmd[MAX_LINE / 2 + 1];
+        /**
+        * After reading user input, the steps are:
+        * (1) fork a child process using fork()
+        * (2) the child process will invoke execvp()
+        * (3) parent will invoke wait() unless command included &
+        */
+        char* cmd[MAX_LEN];
         i = 0;
         int j = 0;
         while (args[i] != NULL) {
@@ -128,15 +147,13 @@ int main(void)
         // end of input
         cmd[j] = NULL;
         createChildProc(cmd, ';');
-
-        /**
-        * After reading user input, the steps are:
-        * (1) fork a child process using fork()
-        * (2) the child process will invoke execvp()
-        * (3) parent will invoke wait() unless command included &
-        */
-
+        // add cmd to history
+        if(history != NULL) free(history);
+        history = strdup(input);
+        free(input);
     }
+    // free 
+    if(history != NULL) free(history); 
     return 0;
 }
 
