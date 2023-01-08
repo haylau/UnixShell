@@ -1,3 +1,25 @@
+/*
+*
+* UNIX shell 
+* shell.c
+* Authors: Hayden Lauritzen and Danny Kha
+*
+* This program emulates a UNIX shell in C that accepts user commands and can execute
+* each command in seperate processes
+*
+* The following commands can be preformed:
+* ls 
+* ls -al
+* ls & whoami;
+* !!
+* ls > junk.txt 
+* cat < junk.txt
+* ls | wc
+* ps auxf | cat | tac | cat | tac | grep 'whoami'
+* ascii
+*
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/wait.h>
@@ -93,6 +115,9 @@ int main(void)
             if(input != NULL) free(input);
             break; // exit shell
         } 
+        if (strcmp(token, "ascii") == 0) {
+            // todo ascii extra credit
+        }
         if(strcmp(token, "!!") == 0) {
             if(history == NULL) {
                 printf("No command history.");
