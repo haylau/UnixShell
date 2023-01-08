@@ -68,7 +68,7 @@ void createChildProc(char** args, char cmdTerm) {
 int main(void)
 {
     char* args[MAX_LEN]; /* tokenized command line arguments */
-    char* history; /* command line history; contains malloc'd ptrs */
+    char* history = NULL; /* command line history; contains malloc'd ptrs */
     int should_run = 1; /* flag to determine when to exit program */
 
     while (should_run) {
@@ -85,8 +85,9 @@ int main(void)
         }
 
         // tokenize user cmd
+        char* temp = strdup(input); // preserve original input
         const char delim[2] = " ";
-        char* token = strtok(input, delim);
+        char* token = strtok(temp, delim);
         // most recent cmd requested
         if(strcmp(token, "exit") == 0) {
             if(input != NULL) free(input);
@@ -98,11 +99,14 @@ int main(void)
             }
             else {
                 free(input);
+                free(temp);
                 // fetch from history
                 input = strdup(history);
-                printf("%s\n", input);
+                temp = strdup(input);
                 // update new first token
-                token = strtok(input, delim);
+                token = strtok(temp, delim);
+                // print prev cmd
+                printf("%s\n", input);
             }
         }
         // grab rest of input tokens
@@ -150,7 +154,9 @@ int main(void)
         // add cmd to history
         if(history != NULL) free(history);
         history = strdup(input);
+        // free memory
         free(input);
+        free(temp);
     }
     // free 
     if(history != NULL) free(history); 
