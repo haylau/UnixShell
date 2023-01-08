@@ -87,6 +87,8 @@ int main(void)
             (*input)[lineSize - 1] = '\0';
         }
 
+        // add cmd to history
+
         // tokenize user cmd
         const char delim[2] = " ";
         int i = 0;
