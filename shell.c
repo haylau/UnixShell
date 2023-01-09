@@ -62,24 +62,23 @@ void createChildProc(char** args, char cmdTerm) {
         // child fork
         if(args[0] == NULL) break;
         int i = 0;
-        while (args[i] != NULL)
+        while (args[i] != NULL && args[i+1] != NULL)
         {
             // redirect operators
-            if (strcmp(args[1], ">") == 0) // redirecting out
+            if (strcmp(args[i], ">") == 0) // redirecting out
             {
-                redirectOut(args[2]); // sending token after '>' to redirect out function
-                args[1] = NULL;
-                args[2] = NULL;
+                redirectOut(args[i+1]); // sending token after '>' to redirect out function
+                args[i] = NULL;
+                args[i+1] = NULL;
             }
-            else if (strcmp(args[1], "<") == 0) // redirecting in
+            else if (strcmp(args[i], "<") == 0) // redirecting in
             {
-                redirectIn(args[2]); // sending token after '<' to redirect in function
-                args[1] = NULL;
-                args[2] = NULL;
+                redirectIn(args[i+1]); // sending token after '<' to redirect in function
+                args[i] = NULL;
+                args[i+1] = NULL;
             }
             ++i;
         }
-
         execvp(args[0], args); // invoking execvp
         break;
     }
