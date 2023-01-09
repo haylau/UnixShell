@@ -36,6 +36,7 @@ void createChildProc(char** args, char cmdTerm) {
     }
     case 0: {
         // child fork
+        if(args[0] == NULL) break;
         int i = 0;
         while (args[i] != NULL)
         {
@@ -91,6 +92,7 @@ int main(void)
         // most recent cmd requested
         if(strcmp(token, "exit") == 0) {
             if(input != NULL) free(input);
+            if(temp != NULL) free(temp);
             break; // exit shell
         } 
         if(strcmp(token, "!!") == 0) {
@@ -98,8 +100,8 @@ int main(void)
                 printf("No command history.");
             }
             else {
-                free(input);
-                free(temp);
+                if(input != NULL) free(input);
+                if(temp != NULL) free(temp);
                 // fetch from history
                 input = strdup(history);
                 temp = strdup(input);
