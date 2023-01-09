@@ -1,6 +1,8 @@
 /*
 *
-* UNIX shell 
+* CSS 430
+* Due Date: 1/18/23
+* UNIX Shell 
 * shell.c
 * Authors: Hayden Lauritzen and Danny Kha
 *
