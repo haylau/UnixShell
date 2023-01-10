@@ -33,7 +33,7 @@
 #define MAX_LINE 80 /* The maximum length command */
 #define MAX_LEN (MAX_LINE / 2 + 1) /* buffer size */
 
-typedef int bool
+typedef int bool;
 
 // function to redirect out to file
 void redirectOut(char* fileName)
