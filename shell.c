@@ -33,6 +33,8 @@
 #define MAX_LINE 80 /* The maximum length command */
 #define MAX_LEN (MAX_LINE / 2 + 1) /* buffer size */
 
+typedef int bool
+
 // function to redirect out to file
 void redirectOut(char* fileName)
 {
@@ -185,7 +187,7 @@ int main(void)
         * (3) parent will invoke wait() unless command included &
         */
         char* cmd[MAX_LEN];
-        char* cmd2[MAX_LEN];
+        bool createPipe;
         i = 0;
         int j = 0;
         while (args[i] != NULL) {
