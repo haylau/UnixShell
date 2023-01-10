@@ -1,6 +1,8 @@
 /*
 *
-* UNIX shell 
+* CSS 430
+* Due Date: 1/18/23
+* UNIX Shell 
 * shell.c
 * Authors: Hayden Lauritzen and Danny Kha
 *
@@ -34,7 +36,7 @@
 // function to redirect out to file
 void redirectOut(char* fileName)
 {
-    int outFile = open(fileName, O_WRONLY | O_CREAT); // opening file to output
+    int outFile = open(fileName, O_WRONLY | O_CREAT, 0777); // opening file to output
     dup2(outFile, STDOUT_FILENO); // duplicating stdout with outFile
     close(outFile); // close the outFile
 }
@@ -42,9 +44,35 @@ void redirectOut(char* fileName)
 // function to redirect in to file
 void redirectIn(char* fileName)
 {
-    int inFile = open(fileName, O_RDONLY | O_CREAT); // opening file to read input
+    int inFile = open(fileName, O_RDONLY | O_CREAT, 0777); // opening file to read input
     dup2(inFile, STDIN_FILENO); // duplicating stdin with inFile
     close(inFile); // close the inFile
+}
+
+// function where piped system commands are executed
+// 0 is read end and 1 is write end
+void createPipeProc(char** args, char cmdTerm)
+{
+    pid_t pid; // create a new pid
+    int fd[2]; // create a fd
+    
+    pipe(fd); // create a pipe
+
+    switch (pid = fork()) { // switch case for the new process
+        case 0: // child 1 is executing and only needs to write 
+            dup2(fd[0], 0);
+            close(fd[1]);
+            execvp(args[2], args);
+            perror(args[2]);
+        default: // parent is executing and only needs the read end
+            dup2(fd[1], 1);
+            close(fd[0]);
+            execvp(args[0], args);
+            perror(args[0]);
+        case -1:
+            perror("fork");
+            exit(1);
+    }
 }
 
 void createChildProc(char** args, char cmdTerm) {
@@ -58,21 +86,25 @@ void createChildProc(char** args, char cmdTerm) {
     }
     case 0: {
         // child fork
+        if(args[0] == NULL) break;
         int i = 0;
-        while (args[i] != NULL)
+        while (args[i] != NULL && args[i+1] != NULL)
         {
             // redirect operators
             if (strcmp(args[i], ">") == 0) // redirecting out
             {
-                redirectOut(args[i + 1]); // sending token after '>' to redirect out function
+                redirectOut(args[i+1]); // sending token after '>' to redirect out function
+                args[i] = NULL;
+                args[i+1] = NULL;
             }
             else if (strcmp(args[i], "<") == 0) // redirecting in
             {
-                redirectIn(args[i + 1]); // sending token after '<' to redirect in function
+                redirectIn(args[i+1]); // sending token after '<' to redirect in function
+                args[i] = NULL;
+                args[i+1] = NULL;
             }
             ++i;
         }
-
         execvp(args[0], args); // invoking execvp
         break;
     }
@@ -113,18 +145,20 @@ int main(void)
         // most recent cmd requested
         if(strcmp(token, "exit") == 0) {
             if(input != NULL) free(input);
+            if(temp != NULL) free(temp);
             break; // exit shell
         } 
         if (strcmp(token, "ascii") == 0) {
             // todo ascii extra credit
+
         }
         if(strcmp(token, "!!") == 0) {
             if(history == NULL) {
                 printf("No command history.");
             }
             else {
-                free(input);
-                free(temp);
+                if(input != NULL) free(input);
+                if(temp != NULL) free(temp);
                 // fetch from history
                 input = strdup(history);
                 temp = strdup(input);
@@ -151,6 +185,7 @@ int main(void)
         * (3) parent will invoke wait() unless command included &
         */
         char* cmd[MAX_LEN];
+        char* cmd2[MAX_LEN];
         i = 0;
         int j = 0;
         while (args[i] != NULL) {
@@ -165,6 +200,11 @@ int main(void)
             // found pipe operator
             else if (strcmp(args[i], "|") == 0) {
                 // #TODO pipe?? 
+                cmd[j] = NULL; // this is the "|"
+                cmd[j + 1] = args[i + 1]; // this is the second command
+                createPipeProc(cmd, args[i][0]); 
+                cmd[0] = NULL;
+                j = 0;
             }
             // else found an arguement
             else {
