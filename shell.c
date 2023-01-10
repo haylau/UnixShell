@@ -2,7 +2,7 @@
 *
 * CSS 430
 * Due Date: 1/18/23
-* UNIX Shell 
+* UNIX Shell
 * shell.c
 * Authors: Hayden Lauritzen and Danny Kha
 *
@@ -10,11 +10,11 @@
 * each command in seperate processes
 *
 * The following commands can be preformed:
-* ls 
+* ls
 * ls -al
 * ls & whoami;
 * !!
-* ls > junk.txt 
+* ls > junk.txt
 * cat < junk.txt
 * ls | wc
 * ps auxf | cat | tac | cat | tac | grep 'whoami'
@@ -34,6 +34,8 @@
 #define MAX_LEN (MAX_LINE / 2 + 1) /* buffer size */
 
 typedef int bool;
+const int true = 1;
+const int false = 0;
 
 // function to redirect out to file
 void redirectOut(char* fileName)
@@ -51,29 +53,66 @@ void redirectIn(char* fileName)
     close(inFile); // close the inFile
 }
 
+
+char** parsePipe(char** args) {
+    // turn {"cat", "file.txt", "|", "grep", "hello", "|", "head", "-1"} 
+    // into {{"cat", "file.txt"}, {"grep", "hello"}, {"head", "-1"}
+}
+
 // function where piped system commands are executed
 // 0 is read end and 1 is write end
-void createPipeProc(char** args, char cmdTerm)
+void createPipeProc(char** args)
 {
     pid_t pid; // create a new pid
     int fd[2]; // create a fd
-    
+
     pipe(fd); // create a pipe
 
     switch (pid = fork()) { // switch case for the new process
-        case 0: // child 1 is executing and only needs to write 
-            dup2(fd[0], 0);
-            close(fd[1]);
-            execvp(args[2], args);
-            perror(args[2]);
-        default: // parent is executing and only needs the read end
-            dup2(fd[1], 1);
-            close(fd[0]);
-            execvp(args[0], args);
-            perror(args[0]);
-        case -1:
-            perror("fork");
-            exit(1);
+    case 0: // child 1 is executing and only needs to write 
+        
+        // createChildPipe(right side of pipe)
+
+        
+        // dup2(fd[0], 0);
+        // close(fd[1]);
+        // execvp(args[2], args);
+        // perror(args[2]);
+    default: // parent is executing and only needs the read end
+        dup2(fd[1], 1);
+        close(fd[0]);
+        execvp(args[0], args);
+        perror(args[0]);
+    case -1:
+        perror("fork");
+        exit(1);
+    }
+}
+
+void createChildPipe(char** args) {
+    pid_t pid; // create a new pid
+    int fd[2]; // create a fd
+
+    pipe(fd); // create a pipe
+
+    switch (pid = fork()) { // switch case for the new process
+    case 0: // child 1 is executing and only needs to write 
+        
+        // if num pipes left > 2 createChildPipe(right side of pipe)
+
+        // else 
+        // dup2(fd[0], 0);
+        // close(fd[1]);
+        // execvp(args[2], args);
+        // perror(args[2]);
+    default: // parent is executing and only needs the read end
+        dup2(fd[1], 1);
+        close(fd[0]);
+        execvp(args[0], args);
+        perror(args[0]);
+    case -1:
+        perror("fork");
+        exit(1);
     }
 }
 
@@ -88,22 +127,22 @@ void createChildProc(char** args, char cmdTerm) {
     }
     case 0: {
         // child fork
-        if(args[0] == NULL) break;
+        if (args[0] == NULL) break;
         int i = 0;
-        while (args[i] != NULL && args[i+1] != NULL)
+        while (args[i] != NULL && args[i + 1] != NULL)
         {
             // redirect operators
             if (strcmp(args[i], ">") == 0) // redirecting out
             {
-                redirectOut(args[i+1]); // sending token after '>' to redirect out function
+                redirectOut(args[i + 1]); // sending token after '>' to redirect out function
                 args[i] = NULL;
-                args[i+1] = NULL;
+                args[i + 1] = NULL;
             }
             else if (strcmp(args[i], "<") == 0) // redirecting in
             {
-                redirectIn(args[i+1]); // sending token after '<' to redirect in function
+                redirectIn(args[i + 1]); // sending token after '<' to redirect in function
                 args[i] = NULL;
-                args[i+1] = NULL;
+                args[i + 1] = NULL;
             }
             ++i;
         }
@@ -125,7 +164,7 @@ int main(void)
 {
     char* args[MAX_LEN]; /* tokenized command line arguments */
     char* history = NULL; /* command line history; contains malloc'd ptrs */
-    int should_run = 1; /* flag to determine when to exit program */
+    bool should_run = true; /* flag to determine when to exit program */
 
     while (should_run) {
         printf("osh>");
@@ -134,7 +173,7 @@ int main(void)
         // fetch user cmd
         size_t len = MAX_LINE;
         ssize_t lineSize = 0; // length of string
-        char* input = (char*) malloc(len);
+        char* input = (char*)malloc(len);
         lineSize = getline(&input, &len, stdin);
         if (lineSize > 0) {
             (input)[lineSize - 1] = '\0';
@@ -145,22 +184,22 @@ int main(void)
         const char delim[2] = " ";
         char* token = strtok(temp, delim);
         // most recent cmd requested
-        if(strcmp(token, "exit") == 0) {
-            if(input != NULL) free(input);
-            if(temp != NULL) free(temp);
+        if (strcmp(token, "exit") == 0) {
+            if (input != NULL) free(input);
+            if (temp != NULL) free(temp);
             break; // exit shell
-        } 
+        }
         if (strcmp(token, "ascii") == 0) {
             // todo ascii extra credit
 
         }
-        if(strcmp(token, "!!") == 0) {
-            if(history == NULL) {
+        if (strcmp(token, "!!") == 0) {
+            if (history == NULL) {
                 printf("No command history.");
             }
             else {
-                if(input != NULL) free(input);
-                if(temp != NULL) free(temp);
+                if (input != NULL) free(input);
+                if (temp != NULL) free(temp);
                 // fetch from history
                 input = strdup(history);
                 temp = strdup(input);
@@ -194,19 +233,22 @@ int main(void)
             // found end of command
             if (strcmp(args[i], ";") == 0 || strcmp(args[i], "&") == 0) {
                 cmd[j] = NULL;
-                createChildProc(cmd, args[i][0]);
+                if (createPipe) { // if a pipe is needed, create one
+                    parsePipe(cmd);
+                    createPipe = false;
+                }
+                else { // else execute cmd
+                    createChildProc(cmd, args[i][0]);
+                }
                 // empty cmd
                 cmd[0] = NULL;
                 j = 0;
             }
             // found pipe operator
             else if (strcmp(args[i], "|") == 0) {
-                // #TODO pipe?? 
-                cmd[j] = NULL; // this is the "|"
-                cmd[j + 1] = args[i + 1]; // this is the second command
-                createPipeProc(cmd, args[i][0]); 
-                cmd[0] = NULL;
-                j = 0;
+                createPipe = true;
+                cmd[j] = args[i];
+                ++j;
             }
             // else found an arguement
             else {
@@ -217,16 +259,21 @@ int main(void)
         }
         // end of input
         cmd[j] = NULL;
-        createChildProc(cmd, ';');
+        if (createPipe) { // if a pipe is needed, create one
+            parsePipe(cmd);
+        }
+        else { // else execute cmd
+            createChildProc(cmd, ";");
+        }
         // add cmd to history
-        if(history != NULL) free(history);
+        if (history != NULL) free(history);
         history = strdup(input);
         // free memory
         free(input);
         free(temp);
     }
     // free 
-    if(history != NULL) free(history); 
+    if (history != NULL) free(history);
     return 0;
 }
 
