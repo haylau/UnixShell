@@ -37,9 +37,6 @@ typedef int bool;
 const int true = 1;
 const int false = 0;
 
-const int write = 0;
-const int read = 1;
-
 // function to redirect out to file
 void redirectOut(char* fileName)
 {
@@ -56,10 +53,80 @@ void redirectIn(char* fileName)
     close(inFile); // close the inFile
 }
 
+char* convert_to_command(char *strings[], int size) {
+    int i;
+    int command_size = 0;
+    for (i = 0; i < size; i++) {
+        command_size += strlen(strings[i]) + 1; // add 1 for the space or pipe character
+    }
+
+    // allocate memory for the final command string
+    char *command = malloc(command_size + 1); // add 1 for the null character
+    if (command == NULL) {
+        return NULL;
+    }
+
+    int pos = 0;
+    for (i = 0; i < size; i++) {
+        if (strcmp(strings[i], "|") == 0) {
+            command[pos++] = ' ';
+            command[pos++] = '|';
+            command[pos++] = ' ';
+        } else {
+            int len = strlen(strings[i]);
+            strncpy(command + pos, strings[i], len);
+            pos += len;
+            if(i != size -1)
+              command[pos++] = ' ';
+        }
+    }
+
+    command[pos] = '\0';
+    return command;
+}
+
+void removeWhiteSpace(char* buf) {
+    if (buf[strlen(buf) - 1] == ' ' || buf[strlen(buf) - 1] == '\n') {
+        buf[strlen(buf) - 1] = '\0';
+    }
+    if (buf[0] == ' ' || buf[0] == '\n') {
+        memmove(buf, buf + 1, strlen(buf));
+    }
+}
+
+/*
+tokenizes char* buf using the delimiter c, and returns the array of strings in param
+and the size of the array in pointer nr
+*/
+void tokenize_buffer(char** param, char* buf, const char* c) {
+    char* token;
+    token = strtok(buf, c);
+    int pc = -1;
+    while (token) {
+        param[++pc] = malloc(sizeof(token) + 1);
+        strcpy(param[pc], token);
+        removeWhiteSpace(param[pc]);
+        token = strtok(NULL, c);
+    }
+    param[++pc] = NULL;
+}
 
 char** parsePipe(char** args) {
     // turn {"cat", "file.txt", "|", "grep", "hello", "|", "head", "-1"} 
     // into {{"cat", "file.txt"}, {"grep", "hello"}, {"head", "-1"}
+
+    int size = 0;
+    while(args[size] != NULL) {
+        ++size;
+    }
+    char* command = convert_to_command(args, size);
+    char* ans[MAX_LINE];
+
+    tokenize_buffer(ans, command, "|");
+
+    memcpy(args, ans, sizeof(char*) * MAX_LINE);
+    free(command);
+
 }
 
 // function where piped system commands are executed
@@ -68,7 +135,7 @@ void createPipeProc(char** args)
 {
     int numCommands = 0;
     while (args[numCommands] != NULL) {
-        if (strcmp(args[numCommands], "|") == 0) ++numCommands;
+        ++numCommands;
     }
 
     // into {{"cat", "file.txt"}, {"grep", "hello"}, {"head", "-1"}
@@ -79,26 +146,33 @@ void createPipeProc(char** args)
 
     switch (pid) { // switch case for the new process
     case 0: // child 1 is executing and only needs to write 
-
+    {
         args[numCommands] = NULL;
         createChildPipe(args, numCommands - 1);
-
-        // dup2(fd[0], 0);
-        // close(fd[1]);
-        // execvp(args[2], args);
-        // perror(args[2]);
+        break;
+    }
+    // dup2(fd[0], 0);
+    // close(fd[1]);
+    // execvp(args[2], args);
+    // perror(args[2]);
     default: // parent is executing and only needs the read end
+    {
         wait(NULL); // wait for output of previous cmd
-        dup2(fd[read], read); // read to stdin
+        dup2(fd[1], 1); // read to stdin
 
-        close(fd[write]); // close stdout
-        close(fd[read]); // close stdin
+        close(fd[0]); // close stdout
+        close(fd[1]); // close stdin
 
-        execvp(args[0][0], args[0]); // run cmd
+        char* file = args[numCommands - 1][0];
+        const char* argv = args[numCommands - 1];
 
+        execvp(args[numCommands - 1][0], args[numCommands - 1]); // run cmd
+        break;
+    }
     case -1:
         perror("fork");
         exit(1);
+        break;
     }
 }
 
@@ -109,26 +183,36 @@ void createChildPipe(char** args, int numCommands) {
     pid_t pid = fork(); // create a new pid
 
     switch (pid) { // switch case for the new process
-    case 0: // child 1 is executing and only needs to write 
+    case 0: { // child 1 is executing and only needs to write 
 
         // if num pipes left > 2 createChildPipe(right side of pipe)
-
-        // else 
-        dup2(fd[write], write);
-        close(fd[read]);
-        execvp(args[numCommands-1][0], args[numCommands-1]);
-        perror(args[2]);
+        if (numCommands > 2) {
+            createChildPipe(args, numCommands - 1);
+        }
+        else {
+            dup2(fd[0], 0);
+            close(fd[1]);
+            execvp(args[numCommands - 1][0], args[numCommands - 1]);
+            perror(args[2]);
+        }
+        break;
+    }
     default: // parent is executing and only needs the read end
+    {
         wait(NULL); // wait for output of previous cmd
-        dup2(fd[read], read); // read to stdin
+        dup2(fd[1], 1); // read to stdin
 
-        close(fd[write]); // close stdout
-        close(fd[read]); // close stdin
+        close(fd[0]); // close stdout
+        close(fd[1]); // close stdin
 
         execvp(args[0][0], args[0]); // run cmd
-    case -1:
-        perror("fork");
+        break;
+    }
+    case -1: {
         exit(1);
+        perror("fork");
+        break;
+    }
     }
 }
 
@@ -203,13 +287,14 @@ int main(void)
         if (strcmp(token, "exit") == 0) {
             if (input != NULL) free(input);
             if (temp != NULL) free(temp);
+            should_run = false;
             break; // exit shell
         }
-        if (strcmp(token, "ascii") == 0) {
+        else if (strcmp(token, "ascii") == 0) {
             // todo ascii extra credit
-
+            printf("  |\\_/|        ****************************    (\\_/)\n / @ @ \\       *  \"Purrrfectly pleasant\"  *   (='.'=)\n( > º < )      *       Poppy Prinz        *   (\")_(\")\n `>>x<<´       *   (pprinz@example.com)   *\n /  O  \\       ****************************\n");
         }
-        if (strcmp(token, "!!") == 0) {
+        else if (strcmp(token, "!!") == 0) {
             if (history == NULL) {
                 printf("No command history.");
             }
@@ -225,70 +310,72 @@ int main(void)
                 printf("%s\n", input);
             }
         }
-        // grab rest of input tokens
-        int i = 0;
-        args[i] = token;
-        while (token != NULL) {
-            // grab token
-            token = strtok(NULL, delim);
-            ++i;
+        else {
+            // grab rest of input tokens
+            int i = 0;
             args[i] = token;
-        }
+            while (token != NULL) {
+                // grab token
+                token = strtok(NULL, delim);
+                ++i;
+                args[i] = token;
+            }
 
-        /**
-        * After reading user input, the steps are:
-        * (1) fork a child process using fork()
-        * (2) the child process will invoke execvp()
-        * (3) parent will invoke wait() unless command included &
-        */
-        char* cmd[MAX_LEN];
-        bool createPipe;
-        i = 0;
-        int j = 0;
-        while (args[i] != NULL) {
-            // found end of command
-            if (strcmp(args[i], ";") == 0 || strcmp(args[i], "&") == 0) {
-                cmd[j] = NULL;
-                if (createPipe) { // if a pipe is needed, create one
-                    parsePipe(cmd);
-                    createPipe = false;
-                    createPipeProc(cmd);
+            /**
+            * After reading user input, the steps are:
+            * (1) fork a child process using fork()
+            * (2) the child process will invoke execvp()
+            * (3) parent will invoke wait() unless command included &
+            */
+            char* cmd[MAX_LEN];
+            bool createPipe;
+            i = 0;
+            int j = 0;
+            while (args[i] != NULL) {
+                // found end of command
+                if (strcmp(args[i], ";") == 0 || strcmp(args[i], "&") == 0) {
+                    cmd[j] = NULL;
+                    if (createPipe) { // if a pipe is needed, create one
+                        parsePipe(cmd);
+                        createPipe = false;
+                        createPipeProc(cmd);
+                    }
+                    else { // else execute cmd
+                        createChildProc(cmd, args[i][0]);
+                    }
+                    // empty cmd
+                    cmd[0] = NULL;
+                    j = 0;
                 }
-                else { // else execute cmd
-                    createChildProc(cmd, args[i][0]);
+                // found pipe operator
+                else if (strcmp(args[i], "|") == 0) {
+                    createPipe = true;
+                    cmd[j] = args[i];
+                    ++j;
                 }
-                // empty cmd
-                cmd[0] = NULL;
-                j = 0;
+                // else found an arguement
+                else {
+                    cmd[j] = args[i];
+                    ++j;
+                }
+                ++i;
             }
-            // found pipe operator
-            else if (strcmp(args[i], "|") == 0) {
-                createPipe = true;
-                cmd[j] = args[i];
-                ++j;
+            // end of input
+            cmd[j] = NULL;
+            if (createPipe) { // if a pipe is needed, create one
+                parsePipe(cmd);
+                createPipeProc(cmd);
             }
-            // else found an arguement
-            else {
-                cmd[j] = args[i];
-                ++j;
+            else { // else execute cmd
+                createChildProc(cmd, ";");
             }
-            ++i;
+            // add cmd to history
+            if (history != NULL) free(history);
+            history = strdup(input);
+            // free memory
+            free(input);
+            free(temp);
         }
-        // end of input
-        cmd[j] = NULL;
-        if (createPipe) { // if a pipe is needed, create one
-            parsePipe(cmd);
-            createPipeProc(cmd);
-        }
-        else { // else execute cmd
-            createChildProc(cmd, ";");
-        }
-        // add cmd to history
-        if (history != NULL) free(history);
-        history = strdup(input);
-        // free memory
-        free(input);
-        free(temp);
     }
     // free 
     if (history != NULL) free(history);
