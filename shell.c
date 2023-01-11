@@ -37,6 +37,9 @@ typedef int bool;
 const int true = 1;
 const int false = 0;
 
+const int write = 0;
+const int read = 1;
+
 // function to redirect out to file
 void redirectOut(char* fileName)
 {
@@ -63,53 +66,66 @@ char** parsePipe(char** args) {
 // 0 is read end and 1 is write end
 void createPipeProc(char** args)
 {
-    pid_t pid; // create a new pid
-    int fd[2]; // create a fd
+    int numCommands = 0;
+    while (args[numCommands] != NULL) {
+        if (strcmp(args[numCommands], "|") == 0) ++numCommands;
+    }
 
+    // into {{"cat", "file.txt"}, {"grep", "hello"}, {"head", "-1"}
+    int fd[2]; // create a fd
     pipe(fd); // create a pipe
 
-    switch (pid = fork()) { // switch case for the new process
-    case 0: // child 1 is executing and only needs to write 
-        
-        // createChildPipe(right side of pipe)
+    pid_t pid = fork(); // create a new pid
 
-        
+    switch (pid) { // switch case for the new process
+    case 0: // child 1 is executing and only needs to write 
+
+        args[numCommands] = NULL;
+        createChildPipe(args, numCommands - 1);
+
         // dup2(fd[0], 0);
         // close(fd[1]);
         // execvp(args[2], args);
         // perror(args[2]);
     default: // parent is executing and only needs the read end
-        dup2(fd[1], 1);
-        close(fd[0]);
-        execvp(args[0], args);
-        perror(args[0]);
+        wait(NULL); // wait for output of previous cmd
+        dup2(fd[read], read); // read to stdin
+
+        close(fd[write]); // close stdout
+        close(fd[read]); // close stdin
+
+        execvp(args[0][0], args[0]); // run cmd
+
     case -1:
         perror("fork");
         exit(1);
     }
 }
 
-void createChildPipe(char** args) {
-    pid_t pid; // create a new pid
+void createChildPipe(char** args, int numCommands) {
     int fd[2]; // create a fd
-
     pipe(fd); // create a pipe
 
-    switch (pid = fork()) { // switch case for the new process
+    pid_t pid = fork(); // create a new pid
+
+    switch (pid) { // switch case for the new process
     case 0: // child 1 is executing and only needs to write 
-        
+
         // if num pipes left > 2 createChildPipe(right side of pipe)
 
         // else 
-        // dup2(fd[0], 0);
-        // close(fd[1]);
-        // execvp(args[2], args);
-        // perror(args[2]);
+        dup2(fd[write], write);
+        close(fd[read]);
+        execvp(args[numCommands-1][0], args[numCommands-1]);
+        perror(args[2]);
     default: // parent is executing and only needs the read end
-        dup2(fd[1], 1);
-        close(fd[0]);
-        execvp(args[0], args);
-        perror(args[0]);
+        wait(NULL); // wait for output of previous cmd
+        dup2(fd[read], read); // read to stdin
+
+        close(fd[write]); // close stdout
+        close(fd[read]); // close stdin
+
+        execvp(args[0][0], args[0]); // run cmd
     case -1:
         perror("fork");
         exit(1);
@@ -236,6 +252,7 @@ int main(void)
                 if (createPipe) { // if a pipe is needed, create one
                     parsePipe(cmd);
                     createPipe = false;
+                    createPipeProc(cmd);
                 }
                 else { // else execute cmd
                     createChildProc(cmd, args[i][0]);
@@ -261,6 +278,7 @@ int main(void)
         cmd[j] = NULL;
         if (createPipe) { // if a pipe is needed, create one
             parsePipe(cmd);
+            createPipeProc(cmd);
         }
         else { // else execute cmd
             createChildProc(cmd, ";");
