@@ -93,48 +93,6 @@ char*** parsePipe(char** args) {
     return ret;
 }
 
-void createChildPipe(char*** args, int numCommands) {
-    int fd[2]; // create a fd
-    pipe(fd); // create a pipe
-
-    pid_t pid = fork(); // create a new pid
-
-    switch (pid) { // switch case for the new process
-    case 0: { // child 1 is executing and only needs to write 
-
-        // if num pipes left > 2 createChildPipe(right side of pipe)
-        if (numCommands > 2) {
-            createChildPipe(args, numCommands - 1);
-        }
-        // else {
-        //     dup2(fd[WRITE], WRITE);
-        //     close(fd[1]);
-        //     execvp(args[numCommands - 1][0], args[numCommands - 1]);
-        //     perror(args[2]);
-        // }
-        exit(0);
-        break;
-    }
-    default: // parent is executing and only needs the read end
-    {
-        wait(NULL); // wait for output of previous cmd
-        dup2(fd[READ], READ); // read to stdin
-        close(fd[WRITE]); // close stdout
-
-        close(fd[1]); // close stdin
-
-        execvp(args[0][0], args[0]); // run cmd
-        exit(0);
-        break;
-    }
-    case -1: {
-        exit(1);
-        perror("fork");
-        break;
-    }
-    }
-}
-
 // function where piped system commands are executed
 // 0 is read end and 1 is write end
 void createPipeProc(char*** args)
@@ -143,31 +101,39 @@ void createPipeProc(char*** args)
     while (args[numCommands] != NULL) {
         ++numCommands;
     }
-
-    // into {{"cat", "file.txt"}, {"grep", "hello"}, {"head", "-1"}
-    int fd[2]; // create a fd
-    pipe(fd); // create a pipe
-
-    pid_t pid = fork(); // create a new pid
-
-    switch (pid) { // switch case for the new process
-    case 0: // child 1 is executing and only needs to write 
+    int fd[numCommands][2];
+    for (int i = 0; i < numCommands; i++) 
     {
-        createChildPipe(args, numCommands - 1);
-        break;
+        if (i != numCommands - 1) {
+            if (pipe(fd[i]) < 0) {
+                perror("Pipe not created\n");
+                return;
+            }
+        }
+        if (fork() == 0) // child 1
+        {
+            if (i != numCommands - 1) {
+                dup2(fd[i][1], 1);
+                close(fd[i][0]);
+                close(fd[i][1]);
+            }
+
+            if (i != 0) {
+                dup2(fd[i-1][0], 0);
+                close(fd[i-1][1]);
+				close(fd[i-1][0]);
+            }
+            execvp(args[i][0], args[i]);
+            perror("invalid input ");
+            exit(1);
+        }
+        if (i != 0) {
+            close(fd[i-1][0]);
+			close(fd[i-1][1]);
+        }
     }
-    default: // parent is executing and only needs the read end
-    {
-        wait(NULL); // wait for output of previous cmd
-        dup2(fd[READ], STDOUT_FILENO); // read to stdin
-        close(fd[WRITE]); // close stdout
-        execvp(args[numCommands - 1][0], args[numCommands - 1]); // run cmd
-        break;
-    }
-    case -1:
-        perror("fork");
-        exit(1);
-        break;
+    for (int i = 0; i < numCommands; i++) {
+        wait(NULL);
     }
 }
 
