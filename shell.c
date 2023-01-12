@@ -124,7 +124,7 @@ void createPipeProc(char*** args)
             if (i != 0) {
                 dup2(fd[i-1][0], 0);
                 close(fd[i-1][1]);
-				close(fd[i-1][0]);
+                close(fd[i-1][0]);
             }
             execvp(args[i][0], args[i]);
             perror("invalid input ");
@@ -132,7 +132,7 @@ void createPipeProc(char*** args)
         }
         if (i != 0) {
             close(fd[i-1][0]);
-			close(fd[i-1][1]);
+            close(fd[i-1][1]);
         }
     }
     for (int i = 0; i < numCommands; i++) {
