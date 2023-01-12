@@ -12,7 +12,7 @@
 * The following commands have been tested:
 * ls
 * ls -al
-* ls & whoami;
+* ls & whoami ;
 * !!
 * ls > junk.txt
 * cat < junk.txt
@@ -53,9 +53,10 @@ void redirectIn(char* fileName)
     close(inFile); // close the inFile
 }
 
+// function to parse piping. An example is shown here:
+// turn {"cat", "file.txt", "|", "grep", "hello", "|", "head", "-1"} 
+// into {{"cat", "file.txt"}, {"grep", "hello"}, {"head", "-1"}
 char*** parsePipe(char** args) {
-    // turn {"cat", "file.txt", "|", "grep", "hello", "|", "head", "-1"} 
-    // into {{"cat", "file.txt"}, {"grep", "hello"}, {"head", "-1"}
     // all char* involed are malloc'd!
 
     // output
@@ -101,11 +102,13 @@ void createPipeProc(char*** args)
     while (args[numCommands] != NULL) {
         ++numCommands;
     }
-    int fd[numCommands][2];
+
+    int fd[numCommands][2]; 
+
     for (int i = 0; i < numCommands; i++) 
     {
         if (i != numCommands - 1) {
-            if (pipe(fd[i]) < 0) {
+            if (pipe(fd[i]) < 0) { 
                 perror("Pipe not created\n");
                 return;
             }
@@ -137,6 +140,7 @@ void createPipeProc(char*** args)
     }
 }
 
+// function that creates child processes
 void createChildProc(char** args, char cmdTerm) {
     pid_t pid = fork();
     switch (pid) {
@@ -215,23 +219,27 @@ int main(void)
             // todo ascii extra credit
             printf("  |\\_/|        ****************************    (\\_/)\n / @ @ \\       *  \"Purrrfectly pleasant\"  *   (='.'=)\n( > º < )      *       Poppy Prinz        *   (\")_(\")\n `>>x<<´       *   (pprinz@example.com)   *\n /  O  \\       ****************************\n");
         }
-        else if (strcmp(token, "!!") == 0) {
-            if (history == NULL) {
-                printf("No command history.");
-            }
-            else {
-                if (input != NULL) free(input);
-                if (temp != NULL) free(temp);
-                // fetch from history
-                input = strdup(history);
-                temp = strdup(input);
-                // update new first token
-                token = strtok(temp, delim);
-                // print prev cmd
-                printf("%s\n", input);
-            }
-        }
         else {
+            if (strcmp(token, "!!") == 0) {
+                if (history == NULL) {
+                    printf("No command history.");
+                }
+                else {
+                    if (input != NULL) {
+                        free(input);
+                    } 
+                    if (temp != NULL) {
+                        free(temp);
+                    }
+                    // fetch from history
+                    input = strdup(history);
+                    temp = strdup(input);
+                    // update new first token
+                    token = strtok(temp, delim);
+                    // print prev cmd
+                    printf("%s\n", input);
+                }
+            }
             // grab rest of input tokens
             int i = 0;
             args[i] = token;
@@ -316,7 +324,10 @@ int main(void)
                 createChildProc(cmd, ';');
             }
             // add cmd to history
-            if (history != NULL) free(history);
+            if (history != NULL) 
+            {
+                free(history);
+            }
             history = strdup(input);
             // free memory
             free(input);
@@ -324,7 +335,10 @@ int main(void)
         }
     }
     // free 
-    if (history != NULL) free(history);
+    if (history != NULL) 
+    {
+        free(history);
+    }
     return 0;
 }
 
