@@ -204,10 +204,14 @@ int main(void)
             (input)[lineSize - 1] = '\0';
         }
 
+
         // tokenize user cmd
         char* temp = strdup(input); // preserve original input
         const char delim[2] = " ";
         char* token = strtok(temp, delim);
+
+        if(token == NULL) continue; // no cmd was entered
+
         // most recent cmd requested
         if (strcmp(token, "exit") == 0) {
             if (input != NULL) free(input);
