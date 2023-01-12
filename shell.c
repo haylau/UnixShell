@@ -210,7 +210,11 @@ int main(void)
         const char delim[2] = " ";
         char* token = strtok(temp, delim);
 
-        if(token == NULL) continue; // no cmd was entered
+        if(token == NULL) {
+            free(input);
+            free(temp);
+            continue; // no cmd was entered
+        } 
 
         // most recent cmd requested
         if (strcmp(token, "exit") == 0) {
