@@ -57,7 +57,7 @@ void redirectIn(char* fileName)
 // turn {"cat", "file.txt", "|", "grep", "hello", "|", "head", "-1"} 
 // into {{"cat", "file.txt"}, {"grep", "hello"}, {"head", "-1"}
 char*** parsePipe(char** args) {
-    // all char* involed are malloc'd!
+    // all char* involed are malloc'd!, call freePipe() on args after
 
     // output
     char*** ret = (char***)malloc(sizeof(char***) * MAX_LINE);
@@ -94,54 +94,75 @@ char*** parsePipe(char** args) {
     return ret;
 }
 
+// free parsed pipe
+void freePipe(char*** cmds) {
+    // free cmds
+    int l = 0, k = 0;
+    while (cmds[l] != NULL) {
+        while (cmds[l][k] != NULL) {
+            free(cmds[l][k]);
+            ++k;
+        }
+        free(cmds[l]);
+        k = 0;
+        ++l;
+    }
+    free(cmds);
+}
+
 // function where piped system commands are executed
 // 0 is read end and 1 is write end
 void createPipeProc(char*** args)
 {
+    // count num commands (one pipe per command - 1)
     int numCommands = 0;
     while (args[numCommands] != NULL) {
         ++numCommands;
     }
+    // create a fd for every pipe needed
+    int fd[numCommands][2];
 
-    int fd[numCommands][2]; 
-
-    for (int i = 0; i < numCommands; i++) 
+    // create pipes between every command 
+    for (int i = 0; i < numCommands; i++)
     {
         if (i != numCommands - 1) {
-            if (pipe(fd[i]) < 0) { 
+            if (pipe(fd[i]) < 0) {
                 perror("Pipe not created\n");
                 return;
             }
         }
-        if (fork() == 0) // child 1
-        {
+        if (fork() == 0) { // child process
+            // all pipes but the last need to write to stdout
             if (i != numCommands - 1) {
-                dup2(fd[i][1], 1);
-                close(fd[i][0]);
-                close(fd[i][1]);
+                dup2(fd[i][WRITE], STDOUT_FILENO);
+                close(fd[i][READ]);
+                close(fd[i][WRITE]);
             }
-
+            // all pipes but the first need to read from stdin
             if (i != 0) {
-                dup2(fd[i-1][0], 0);
-                close(fd[i-1][1]);
-                close(fd[i-1][0]);
+                dup2(fd[i - 1][READ], STDIN_FILENO);
+                close(fd[i - 1][WRITE]);
+                close(fd[i - 1][READ]);
             }
+            // run command
             execvp(args[i][0], args[i]);
             perror("invalid input ");
             exit(1);
         }
+        // close child-end of pipe
         if (i != 0) {
-            close(fd[i-1][0]);
-            close(fd[i-1][1]);
+            close(fd[i - 1][READ]);
+            close(fd[i - 1][WRITE]);
         }
     }
+    // wait for every child to terminate
     for (int i = 0; i < numCommands; i++) {
         wait(NULL);
     }
 }
 
 // function that creates child processes
-void createChildProc(char** args, char cmdTerm) {
+void createChildProc(char** args, bool doWait) {
     pid_t pid = fork();
     switch (pid) {
     case -1: {
@@ -176,7 +197,7 @@ void createChildProc(char** args, char cmdTerm) {
     }
     default: {
         // parent fork
-        if (cmdTerm == ';') {
+        if (doWait) {
             wait(NULL);
         }
         break;
@@ -210,11 +231,11 @@ int main(void)
         const char delim[2] = " ";
         char* token = strtok(temp, delim);
 
-        if(token == NULL) {
+        if (token == NULL) {
             free(input);
             free(temp);
             continue; // no cmd was entered
-        } 
+        }
 
         // most recent cmd requested
         if (strcmp(token, "exit") == 0) {
@@ -235,7 +256,7 @@ int main(void)
                 else {
                     if (input != NULL) {
                         free(input);
-                    } 
+                    }
                     if (temp != NULL) {
                         free(temp);
                     }
@@ -258,12 +279,7 @@ int main(void)
                 args[i] = token;
             }
 
-            /**
-            * After reading user input, the steps are:
-            * (1) fork a child process using fork()
-            * (2) the child process will invoke execvp()
-            * (3) parent will invoke wait() unless command included &
-            */
+            // parse tokens to find individual commands
             char* cmd[MAX_LEN];
             bool createPipe;
             i = 0;
@@ -276,21 +292,10 @@ int main(void)
                         char*** cmds = parsePipe(cmd); // returns malloc'd ptrs!
                         createPipe = false;
                         createPipeProc(cmds);
-                        // free cmds
-                        int l = 0, k = 0;
-                        while (cmds[l] != NULL) {
-                            while (cmds[l][k] != NULL) {
-                                free(cmds[l][k]);
-                                ++k;
-                            }
-                            free(cmds[l]);
-                            k = 0;
-                            ++l;
-                        }
-                        free(cmds);
+                        freePipe(cmds); // free's malloc'd ptrs
                     }
                     else { // else execute cmd
-                        createChildProc(cmd, args[i][0]);
+                        createChildProc(cmd, (args[i][0] == ';'));
                     }
                     // empty cmd
                     cmd[0] = NULL;
@@ -298,7 +303,7 @@ int main(void)
                 }
                 // found pipe operator
                 else if (strcmp(args[i], "|") == 0) {
-                    createPipe = true;
+                    createPipe = true; // send command to createPipeProc() instead
                     cmd[j] = args[i];
                     ++j;
                 }
@@ -315,24 +320,13 @@ int main(void)
                 char*** cmds = parsePipe(cmd); // returns malloc'd ptrs!
                 createPipe = false;
                 createPipeProc(cmds);
-                // free cmds
-                int l = 0, k = 0;
-                while (cmds[l] != NULL) {
-                    while (cmds[l][k] != NULL) {
-                        free(cmds[l][k]);
-                        ++k;
-                    }
-                    free(cmds[l]);
-                    k = 0;
-                    ++l;
-                }
-                free(cmds);
+                freePipe(cmds); // free's malloc'd ptrs
             }
             else { // else execute cmd
-                createChildProc(cmd, ';');
+                createChildProc(cmd, true);
             }
             // add cmd to history
-            if (history != NULL) 
+            if (history != NULL)
             {
                 free(history);
             }
@@ -343,7 +337,7 @@ int main(void)
         }
     }
     // free 
-    if (history != NULL) 
+    if (history != NULL)
     {
         free(history);
     }
